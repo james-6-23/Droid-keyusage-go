@@ -1,0 +1,106 @@
+version: '3.9'
+
+services:
+  redis:
+    image: redis:7-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '1'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    volumes:
+      - /data/redis:/data
+      - ./docker/redis.conf:/usr/local/etc/redis/redis.conf
+    command: >
+      redis-server
+      --maxmemory 4gb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD}
+    networks:
+      - keyusage-network
+
+  app:
+    image: keyusage:latest
+    deploy:
+      replicas: 3  # 3 instances for load balancing
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 30s
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 256M
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - MAX_WORKERS=200  # Increased for production
+      - QUEUE_SIZE=20000  # Increased for production
+      - HTTP_TIMEOUT=60s
+      - CACHE_TTL=600s
+      - SESSION_TTL=168h
+      - ENV=production
+      - LOG_LEVEL=warn
+    depends_on:
+      - redis
+    networks:
+      - keyusage-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: keyusage-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/ssl:/etc/ssl/certs:ro
+    depends_on:
+      - app
+    networks:
+      - keyusage-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  # Redis Sentinel for HA (optional)
+  sentinel:
+    image: redis:7-alpine
+    container_name: keyusage-sentinel
+    restart: unless-stopped
+    command: redis-sentinel /etc/redis-sentinel/sentinel.conf
+    volumes:
+      - ./docker/sentinel.conf:/etc/redis-sentinel/sentinel.conf
+    networks:
+      - keyusage-network
+    profiles:
+      - ha
+
+networks:
+  keyusage-network:
+    driver: overlay
+    attachable: true
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
