@@ -52,12 +52,14 @@ func (h *Handlers) Login(c *fiber.Ctx) error {
 	}
 
 	// Set session cookie
+	// Only use Secure flag in production (HTTPS)
+	secure := h.config.Env == "production"
 	c.Cookie(&fiber.Cookie{
 		Name:     "session",
 		Value:    sessionID,
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		SameSite: "Lax",
 	})
 
@@ -72,12 +74,13 @@ func (h *Handlers) Logout(c *fiber.Ctx) error {
 	}
 
 	// Clear cookie
+	secure := h.config.Env == "production"
 	c.Cookie(&fiber.Cookie{
 		Name:     "session",
 		Value:    "",
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		SameSite: "Lax",
 	})
 
