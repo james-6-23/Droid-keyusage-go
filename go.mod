@@ -3,15 +3,13 @@ module github.com/droid-keyusage-go
 go 1.21
 
 require (
+	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/gofiber/fiber/v2 v2.52.0
-	github.com/redis/go-redis/v9 v9.5.1
-	github.com/joho/godotenv v1.5.1
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.5.0
-	github.com/allegro/bigcache/v3 v3.1.0
+	github.com/joho/godotenv v1.5.1
+	github.com/redis/go-redis/v9 v9.5.1
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.6.0
-	golang.org/x/time v0.5.0
 )
 
 require (
