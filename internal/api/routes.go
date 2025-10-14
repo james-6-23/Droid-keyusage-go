@@ -1,15 +1,11 @@
 package api
 
 import (
-	"embed"
-	"net/http"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
 )
 
 // SetupRoutes configures all routes
-func SetupRoutes(app *fiber.App, handlers *Handlers, staticFiles embed.FS) {
+func SetupRoutes(app *fiber.App, handlers *Handlers) {
 	// Health check
 	app.Get("/health", handlers.Health)
 
@@ -32,15 +28,8 @@ func SetupRoutes(app *fiber.App, handlers *Handlers, staticFiles embed.FS) {
 	api.Post("/keys/batch-delete", handlers.BatchDeleteKeys)
 
 	// Serve static files
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:       http.FS(staticFiles),
-		PathPrefix: "web/static",
-		Browse:     false,
-		Index:      "index.html",
-	}))
-
-	// Fallback to index.html for SPA
-	app.Get("/*", func(c *fiber.Ctx) error {
-		return c.SendFile("./web/static/index.html")
+	app.Static("/", "./web/static", fiber.Static{
+		Browse: false,
+		Index:  "index.html",
 	})
 }

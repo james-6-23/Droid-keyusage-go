@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"log"
 	"os"
 	"os/signal"
@@ -20,9 +19,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 )
-
-//go:embed all:../../web/static
-var staticFiles embed.FS
 
 func main() {
 	// Load .env file if exists
@@ -88,7 +84,7 @@ func main() {
 	handlers := api.NewHandlers(apiKeyService, authService, cfg)
 
 	// Setup routes
-	api.SetupRoutes(app, handlers, staticFiles)
+	api.SetupRoutes(app, handlers)
 
 	// Graceful shutdown
 	go func() {
