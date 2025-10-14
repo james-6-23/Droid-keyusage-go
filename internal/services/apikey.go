@@ -171,7 +171,19 @@ func (s *APIKeyService) GetAggregatedData() (*models.AggregatedData, error) {
 		if err == nil && usage != nil {
 			// Check if cache is still valid (within TTL)
 			if time.Since(usage.LastUpdated) < s.cacheTTL {
-				cachedResults = append(cachedResults, usage)
+				// Convert storage.Usage to models.Usage
+				modelUsage := &models.Usage{
+					ID:             usage.ID,
+					StartDate:      usage.StartDate,
+					EndDate:        usage.EndDate,
+					TotalAllowance: usage.TotalAllowance,
+					OrgTotalUsed:   usage.OrgTotalUsed,
+					Remaining:      usage.Remaining,
+					UsedRatio:      usage.UsedRatio,
+					LastUpdated:    usage.LastUpdated,
+					Error:          usage.Error,
+				}
+				cachedResults = append(cachedResults, modelUsage)
 				continue
 			}
 		}
@@ -231,7 +243,7 @@ func (s *APIKeyService) GetAggregatedData() (*models.AggregatedData, error) {
 	fmt.Println(strings.Repeat("-", 80))
 	
 	hasPositiveBalance := false
-	for i, usage := range allResults {
+	for _, usage := range allResults {
 		if usage.Error == "" && usage.Remaining > 0 {
 			// Find the original key
 			for _, key := range keys {
