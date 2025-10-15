@@ -713,11 +713,48 @@
         }
 
         async function copyToClipboard(text) {
+            // 方法1: 尝试使用 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (err) {
+                    console.log('Clipboard API 失败，尝试 fallback 方法:', err);
+                }
+            }
+
+            // 方法2: Fallback - 使用传统的 execCommand 方法
             try {
-                await navigator.clipboard.writeText(text);
-                return true;
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                
+                // 避免滚动到页面底部
+                textArea.style.position = 'fixed';
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = '0';
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+                textArea.style.opacity = '0';
+                
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    return true;
+                } else {
+                    throw new Error('execCommand 复制失败');
+                }
             } catch (err) {
-                console.error('复制失败:', err);
+                console.error('Fallback 复制方法也失败:', err);
                 return false;
             }
         }
