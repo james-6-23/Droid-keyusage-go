@@ -174,6 +174,7 @@ func (s *APIKeyService) GetAggregatedData() (*models.AggregatedData, error) {
 				// Convert storage.Usage to models.Usage
 				modelUsage := &models.Usage{
 					ID:             usage.ID,
+					Key:            s.maskKey(key.Key),
 					StartDate:      usage.StartDate,
 					EndDate:        usage.EndDate,
 					TotalAllowance: usage.TotalAllowance,

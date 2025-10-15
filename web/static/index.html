@@ -170,33 +170,144 @@
         }
 
         th {
-            padding: 22px var(--spacing-md);
+            padding: 14px var(--spacing-sm);
             text-align: left;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             white-space: nowrap;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.6px;
             text-transform: uppercase;
             border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         td {
-            padding: 22px var(--spacing-md);
+            padding: 12px var(--spacing-sm);
             border-bottom: 1px solid var(--color-border);
-            font-size: 15px;
+            font-size: 13px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             vertical-align: middle;
         }
 
+        /* 固定列宽以确保对齐 */
+        th:nth-child(1), td:nth-child(1) { width: 50px; }
+        th:nth-child(2), td:nth-child(2) { width: 60px; }
+        th:nth-child(3), td:nth-child(3) { width: 180px; }
+        th:nth-child(4), td:nth-child(4) { width: 110px; }
+        th:nth-child(5), td:nth-child(5) { width: 110px; }
+        th:nth-child(6), td:nth-child(6) { width: 120px; }
+        th:nth-child(7), td:nth-child(7) { width: 120px; }
+        th:nth-child(8), td:nth-child(8) { width: 120px; }
+        th:nth-child(9), td:nth-child(9) { width: 200px; }
+        th:nth-child(10), td:nth-child(10) { width: 100px; }
+
         td.number {
             text-align: right;
             font-weight: 500;
             font-variant-numeric: tabular-nums;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'San Francisco', system-ui, sans-serif;
-            font-size: 18px;
-            letter-spacing: 0.3px;
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        /* 进度条样式 */
+        .progress-bar-container {
+            width: 100%;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 12px;
+            transition: width 0.6s ease, background 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-bar.low {
+            background: linear-gradient(90deg, #34C759, #30B350);
+        }
+
+        .progress-bar.medium {
+            background: linear-gradient(90deg, #FF9500, #FF8000);
+        }
+
+        .progress-bar.high {
+            background: linear-gradient(90deg, #FF3B30, #E03328);
+        }
+
+        /* 分页样式 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-lg) 0;
+            margin-top: var(--spacing-md);
+        }
+
+        .pagination button {
+            background: var(--color-surface);
+            color: var(--color-primary);
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 40px;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: var(--color-primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination button.active {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .pagination .page-info {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            padding: 0 var(--spacing-md);
+        }
+
+        .items-per-page {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .items-per-page select {
+            padding: 8px 12px;
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            cursor: pointer;
+            background: var(--color-surface);
+            color: var(--color-text-primary);
         }
 
         tbody tr { 
@@ -574,7 +685,7 @@
 
     <script>
         let currentPage = 1;
-        let itemsPerPage = 10;
+        let itemsPerPage = 50;
         let allData = null;
         let selectedKeys = new Set();
         let autoRefreshInterval = null;
@@ -827,6 +938,7 @@
 
         function displayData(data) {
             allData = data;
+            currentPage = 1; // 重置到第一页
             document.getElementById('updateTime').textContent = `最后更新: ${data.update_time} | 共 ${data.total_count} 个API Key`;
 
             const totalAllowance = data.totals.total_totalAllowance;
@@ -850,6 +962,12 @@
             renderTable();
         }
 
+        function getProgressBarClass(ratio) {
+            if (ratio < 0.5) return 'low';
+            if (ratio < 0.8) return 'medium';
+            return 'high';
+        }
+
         function renderTable() {
             if (!allData) return;
 
@@ -859,7 +977,24 @@
             const totalRemaining = totalAllowance - totalUsed;
             const overallRatio = totalAllowance > 0 ? totalUsed / totalAllowance : 0;
 
+            // 分页计算
+            const totalPages = Math.ceil(data.data.length / itemsPerPage);
+            const startIdx = (currentPage - 1) * itemsPerPage;
+            const endIdx = Math.min(startIdx + itemsPerPage, data.data.length);
+            const currentPageData = data.data.slice(startIdx, endIdx);
+
             let tableHTML = `
+                <div class="items-per-page">
+                    <label>每页显示:</label>
+                    <select onchange="changeItemsPerPage(this.value)">
+                        <option value="20" ${itemsPerPage === 20 ? 'selected' : ''}>20</option>
+                        <option value="50" ${itemsPerPage === 50 ? 'selected' : ''}>50</option>
+                        <option value="100" ${itemsPerPage === 100 ? 'selected' : ''}>100</option>
+                        <option value="200" ${itemsPerPage === 200 ? 'selected' : ''}>200</option>
+                        <option value="${data.data.length}" ${itemsPerPage === data.data.length ? 'selected' : ''}>全部</option>
+                    </select>
+                    <span style="color: var(--color-text-secondary); margin-left: 12px;">显示 ${startIdx + 1}-${endIdx} / 共 ${data.data.length} 条</span>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -871,7 +1006,7 @@
                             <th class="number">总计额度</th>
                             <th class="number">已使用</th>
                             <th class="number">剩余额度</th>
-                            <th class="number">使用百分比</th>
+                            <th>使用百分比</th>
                             <th style="text-align: center;">操作</th>
                         </tr>
                     </thead>
@@ -884,18 +1019,24 @@
                     <td class="number">${formatNumber(totalAllowance)}</td>
                     <td class="number">${formatNumber(totalUsed)}</td>
                     <td class="number">${formatNumber(totalRemaining)}</td>
-                    <td class="number">${formatPercentage(overallRatio)}</td>
+                    <td>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar ${getProgressBarClass(overallRatio)}" style="width: ${Math.min(overallRatio * 100, 100)}%">
+                                ${formatPercentage(overallRatio)}
+                            </div>
+                        </div>
+                    </td>
                     <td></td>
                 </tr>`;
 
-            data.data.forEach(item => {
+            currentPageData.forEach(item => {
                 const isChecked = selectedKeys.has(item.id);
                 if (item.error) {
                     tableHTML += `
                         <tr>
                             <td class="checkbox-cell"><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSelection('${item.id}'); renderTable();"></td>
                             <td>${item.id}</td>
-                            <td class="key-cell">${item.key}</td>
+                            <td class="key-cell">${item.key || 'N/A'}</td>
                             <td colspan="6" style="color: var(--color-danger);">加载失败: ${item.error}</td>
                             <td style="text-align: center;">
                                 <button class="table-delete-btn" onclick="deleteKeyFromTable('${item.id}')">🗑️</button>
@@ -903,17 +1044,24 @@
                         </tr>`;
                 } else {
                     const remaining = item.total_allowance - item.org_total_tokens_used;
+                    const ratio = item.used_ratio || 0;
                     tableHTML += `
                         <tr>
                             <td class="checkbox-cell"><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSelection('${item.id}'); renderTable();"></td>
                             <td>${item.id}</td>
-                            <td class="key-cell">${item.key}</td>
+                            <td class="key-cell">${item.key || 'N/A'}</td>
                             <td>${item.start_date}</td>
                             <td>${item.end_date}</td>
                             <td class="number">${formatNumber(item.total_allowance)}</td>
                             <td class="number">${formatNumber(item.org_total_tokens_used)}</td>
                             <td class="number">${formatNumber(remaining)}</td>
-                            <td class="number">${formatPercentage(item.used_ratio)}</td>
+                            <td>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar ${getProgressBarClass(ratio)}" style="width: ${Math.min(ratio * 100, 100)}%">
+                                        ${formatPercentage(ratio)}
+                                    </div>
+                                </div>
+                            </td>
                             <td style="text-align: center;">
                                 <div class="action-buttons">
                                     <button class="table-copy-btn" onclick="copyKey('${item.id}', this)" title="复制 API Key">📋</button>
@@ -928,8 +1076,48 @@
                     </tbody>
                 </table>`;
 
+            // 添加分页控件
+            if (totalPages > 1) {
+                tableHTML += `<div class="pagination">`;
+                tableHTML += `<button onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
+                tableHTML += `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+                
+                // 显示页码
+                const maxPagesToShow = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+                let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+                
+                if (endPage - startPage < maxPagesToShow - 1) {
+                    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                    tableHTML += `<button onclick="goToPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+                }
+                
+                tableHTML += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+                tableHTML += `<button onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
+                tableHTML += `<div class="page-info">第 ${currentPage} / ${totalPages} 页</div>`;
+                tableHTML += `</div>`;
+            }
+
             document.getElementById('tableContent').innerHTML = tableHTML;
             updateBatchToolbar();
+        }
+
+        function goToPage(page) {
+            if (!allData) return;
+            const totalPages = Math.ceil(allData.data.length / itemsPerPage);
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                renderTable();
+            }
+        }
+
+        function changeItemsPerPage(value) {
+            itemsPerPage = parseInt(value);
+            currentPage = 1;
+            renderTable();
         }
 
         function toggleManagePanel() {
