@@ -116,13 +116,19 @@ func (h *Handlers) GetFullKey(c *fiber.Ctx) error {
 
 	key, err := h.apiKeyService.GetFullKey(id)
 	if err != nil {
+		// Log the error for debugging
+		c.Context().Logger().Printf("Error getting full key for id %s: %v", id, err)
 		return c.Status(500).JSON(models.ErrorResponse{Error: err.Error()})
 	}
 
 	if key == nil {
+		c.Context().Logger().Printf("Key not found for id: %s", id)
 		return c.Status(404).JSON(models.ErrorResponse{Error: "Key not found"})
 	}
 
+	// Log successful retrieval
+	c.Context().Logger().Printf("Successfully retrieved key for id: %s", id)
+	
 	return c.JSON(fiber.Map{
 		"id":  key.ID,
 		"key": key.Key,

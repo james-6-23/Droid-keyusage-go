@@ -761,15 +761,27 @@
 
         async function copyKey(id, button) {
             try {
+                console.log('尝试复制 Key，ID:', id);
                 const response = await fetch(`/api/keys/${id}/full`);
+                console.log('响应状态:', response.status);
+                
                 if (response.status === 401) {
                     window.location.href = '/login.html';
                     return;
                 }
+                
                 if (!response.ok) {
-                    throw new Error('获取完整 Key 失败');
+                    const errorData = await response.json().catch(() => ({ error: '未知错误' }));
+                    console.error('获取完整 Key 失败:', response.status, errorData);
+                    throw new Error(`获取完整 Key 失败 (${response.status}): ${errorData.error || response.statusText}`);
                 }
+                
                 const data = await response.json();
+                console.log('收到数据:', { id: data.id, keyLength: data.key ? data.key.length : 0 });
+                
+                if (!data.key) {
+                    throw new Error('服务器返回的数据中没有 key 字段');
+                }
                 
                 const success = await copyToClipboard(data.key);
                 
@@ -783,9 +795,10 @@
                         button.title = '复制 API Key';
                     }, 2000);
                 } else {
-                    showToast('复制失败，请重试', true);
+                    showToast('复制到剪贴板失败，请手动复制', true);
                 }
             } catch (error) {
+                console.error('复制失败详情:', error);
                 showToast('复制失败: ' + error.message, true);
             }
         }
