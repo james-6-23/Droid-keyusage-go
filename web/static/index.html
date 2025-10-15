@@ -716,8 +716,9 @@
             console.log('开始复制，文本长度:', text ? text.length : 0);
             
             // 方法1: 尝试使用 Clipboard API (仅在 HTTPS 或 localhost 下可用)
-            if (typeof navigator !== 'undefined' && 
-                navigator.clipboard && 
+            if (window.isSecureContext &&
+                typeof navigator !== 'undefined' &&
+                navigator.clipboard &&
                 typeof navigator.clipboard.writeText === 'function') {
                 try {
                     await navigator.clipboard.writeText(text);
@@ -735,22 +736,34 @@
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
                 
-                // 避免滚动到页面底部
+                // 避免滚动和影响布局
                 textArea.style.position = 'fixed';
-                textArea.style.top = '0';
-                textArea.style.left = '0';
-                textArea.style.width = '2em';
-                textArea.style.height = '2em';
+                textArea.style.top = '-9999px';
+                textArea.style.left = '-9999px';
+                textArea.style.width = '1px';
+                textArea.style.height = '1px';
                 textArea.style.padding = '0';
                 textArea.style.border = 'none';
                 textArea.style.outline = 'none';
                 textArea.style.boxShadow = 'none';
                 textArea.style.background = 'transparent';
-                textArea.style.opacity = '0';
+                textArea.setAttribute('readonly', '');
                 
                 document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
+                
+                // 选择文本
+                if (navigator.userAgent.match(/ipad|iphone/i)) {
+                    // iOS 设备特殊处理
+                    const range = document.createRange();
+                    range.selectNodeContents(textArea);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    textArea.setSelectionRange(0, 999999);
+                } else {
+                    textArea.select();
+                    textArea.setSelectionRange(0, 999999);
+                }
                 
                 // 尝试复制
                 const successful = document.execCommand('copy');
