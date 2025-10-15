@@ -34,8 +34,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ADMIN_PASSWORD=
       - LOG_LEVEL=info
-      - MAX_WORKERS=100
-      - QUEUE_SIZE=10000
+      - MAX_WORKERS=500
+      - QUEUE_SIZE=50000
       - HTTP_TIMEOUT=30s
       - CACHE_TTL=300s
       - SESSION_TTL=168h

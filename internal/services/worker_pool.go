@@ -199,36 +199,34 @@ func (wp *WorkerPool) GetResult() (Result, bool) {
 
 // BatchProcess processes multiple API keys concurrently
 func (wp *WorkerPool) BatchProcess(keys []*storage.APIKey) ([]*models.Usage, error) {
-	results := make([]*models.Usage, 0, len(keys))
-	resultMap := make(map[string]*models.Usage)
-	var mu sync.Mutex
-
-	// Submit all tasks
-	for _, key := range keys {
-		task := Task{
-			ID:     key.ID,
-			APIKey: key.Key,
-		}
-		if err := wp.SubmitTask(task); err != nil {
-			// Log error but continue with other keys
-			continue
-		}
+	if len(keys) == 0 {
+		return []*models.Usage{}, nil
 	}
 
-	// Collect results
-	timeout := time.After(30 * time.Second)
-	received := 0
+	resultMap := make(map[string]*models.Usage, len(keys))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-	for received < len(keys) {
-		select {
-		case result, ok := <-wp.resultQueue:
-			if !ok {
-				break
-			}
-			
+	// 计算动态超时时间：每个key给2秒 + 基础30秒
+	timeoutDuration := 30*time.Second + time.Duration(len(keys)/wp.maxWorkers)*2*time.Second
+	if timeoutDuration > 5*time.Minute {
+		timeoutDuration = 5 * time.Minute // 最多5分钟
+	}
+
+	fmt.Printf("🚀 开始处理 %d 个 API Keys，使用 %d 个 workers，超时时间：%v\n",
+		len(keys), wp.maxWorkers, timeoutDuration)
+	startTime := time.Now()
+
+	// 创建一个带缓冲的结果channel，避免阻塞
+	resultChan := make(chan Result, len(keys))
+	
+	// 启动结果收集器
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for result := range resultChan {
 			mu.Lock()
 			if result.Error != nil {
-				// Create error usage entry
 				resultMap[result.ID] = &models.Usage{
 					ID:    result.ID,
 					Error: result.Error.Error(),
@@ -237,21 +235,91 @@ func (wp *WorkerPool) BatchProcess(keys []*storage.APIKey) ([]*models.Usage, err
 				resultMap[result.ID] = result.Usage
 			}
 			mu.Unlock()
-			
-			received++
-			
-		case <-timeout:
-			// Timeout reached, return what we have
-			break
+		}
+	}()
+
+	// 批量提交任务
+	submitted := 0
+	for _, key := range keys {
+		task := Task{
+			ID:     key.ID,
+			APIKey: key.Key,
+		}
+		
+		// 非阻塞提交
+		select {
+		case wp.taskQueue <- task:
+			submitted++
+		default:
+			// 队列满了，等待一下再试
+			time.Sleep(10 * time.Millisecond)
+			select {
+			case wp.taskQueue <- task:
+				submitted++
+			default:
+				// 仍然失败，记录错误
+				resultChan <- Result{
+					ID:    key.ID,
+					Error: fmt.Errorf("task queue full"),
+				}
+			}
 		}
 	}
 
-	// Convert map to slice maintaining order
+	fmt.Printf("✅ 已提交 %d/%d 个任务到队列\n", submitted, len(keys))
+
+	// 使用超时context收集结果
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	defer cancel()
+
+	received := 0
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+collectLoop:
+	for received < len(keys) {
+		select {
+		case result := <-wp.resultQueue:
+			resultChan <- result
+			received++
+			
+			// 每收到100个结果打印一次进度
+			if received%100 == 0 {
+				elapsed := time.Since(startTime)
+				rate := float64(received) / elapsed.Seconds()
+				fmt.Printf("📊 进度: %d/%d (%.1f%%) | 速度: %.1f keys/s\n",
+					received, len(keys), float64(received)/float64(len(keys))*100, rate)
+			}
+			
+		case <-ticker.C:
+			// 每秒打印一次进度
+			elapsed := time.Since(startTime)
+			rate := float64(received) / elapsed.Seconds()
+			fmt.Printf("⏱️  处理中: %d/%d (%.1f%%) | 速度: %.1f keys/s | 耗时: %v\n",
+				received, len(keys), float64(received)/float64(len(keys))*100, rate, elapsed.Round(time.Second))
+			
+		case <-ctx.Done():
+			fmt.Printf("⚠️  超时! 已收到 %d/%d 个结果\n", received, len(keys))
+			break collectLoop
+		}
+	}
+
+	// 关闭结果channel并等待收集器完成
+	close(resultChan)
+	wg.Wait()
+
+	elapsed := time.Since(startTime)
+	rate := float64(received) / elapsed.Seconds()
+	fmt.Printf("🎉 处理完成! 总计: %d 个 | 成功: %d 个 | 耗时: %v | 平均速度: %.1f keys/s\n",
+		len(keys), received, elapsed.Round(time.Millisecond), rate)
+
+	// 转换为有序结果
+	results := make([]*models.Usage, 0, len(keys))
 	for _, key := range keys {
 		if usage, exists := resultMap[key.ID]; exists {
 			results = append(results, usage)
 		} else {
-			// Add placeholder for missing results
+			// 超时未收到的结果
 			results = append(results, &models.Usage{
 				ID:    key.ID,
 				Error: "Processing timeout",
