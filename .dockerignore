@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+server
+main
+
+# Test files
+*_test.go
+testdata/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Environment
+.env
+.env.*
+
+# Monitoring (if not needed in image)
+docker/prometheus.yml
+docker/grafana/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -21,6 +21,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      args:
+        - GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
+      # 启用 BuildKit 缓存
+      cache_from:
+        - type=registry,ref=keyusage-app:buildcache
     container_name: keyusage-app
     restart: unless-stopped
     ports:

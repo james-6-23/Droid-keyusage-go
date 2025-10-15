@@ -45,19 +45,27 @@ cp .env.example .env
 # 编辑 .env 文件设置密码等配置
 ```
 
-3. **启动服务**
+3. **构建并启动服务**
 ```bash
-# 开发环境
+# 启用 BuildKit 加速构建（推荐）
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# 构建并启动
+docker-compose build
 docker-compose up -d
 
-# 或使用 Make
-make docker-up
+# 中国大陆用户（使用国内镜像加速）
+GOPROXY=https://goproxy.cn,direct docker-compose build
+docker-compose up -d
 ```
 
 4. **访问应用**
 ```
-http://localhost:8080
+http://localhost:6413
 ```
+
+> 💡 **构建速度优化**：已启用 BuildKit 缓存和分层构建，首次构建约 2-3 分钟，后续修改代码仅需 30-60 秒。
 
 ### 本地开发
 
@@ -124,7 +132,7 @@ Droid-keyusage-go/
 ```bash
 # 构建
 make build              # 构建二进制文件
-make docker-build       # 构建 Docker 镜像
+make docker-build       # 构建 Docker 镜像（已启用 BuildKit）
 
 # 运行
 make run               # 本地运行
@@ -148,16 +156,47 @@ make redis-cli         # 连接 Redis CLI
 make monitor           # 启动 Prometheus + Grafana
 ```
 
+### 🚄 Docker 构建优化
+
+项目已针对 Docker 构建速度进行了优化，使用 `docker-compose build` 即可享受以下加速：
+
+1. **BuildKit 缓存**: 自动缓存 Go 模块和构建结果
+2. **分层构建**: 依赖层和代码层分离，只在必要时重建
+3. **最小化上下文**: `.dockerignore` 排除不必要文件
+4. **Go 代理支持**: 可通过 `GOPROXY` 环境变量使用国内镜像
+
+**构建性能**：
+- 首次构建：~2-3 分钟
+- 修改代码后：~30-60 秒
+- 仅修改静态文件：~10-15 秒
+
+**提示**：确保设置环境变量以启用 BuildKit：
+```bash
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+```
+
 ## 🚢 生产部署
 
 ### 使用 Docker Swarm/K8s
 
 ```bash
-# 构建生产镜像
+# 构建生产镜像（启用 BuildKit）
+export DOCKER_BUILDKIT=1
 docker build -f docker/Dockerfile -t keyusage:latest .
 
 # 使用生产配置启动
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### 中国大陆加速构建
+
+```bash
+# 设置 Go 代理
+export GOPROXY=https://goproxy.cn,direct
+
+# 或在 docker-compose.yml 中设置
+GOPROXY=https://goproxy.cn,direct docker-compose build
 ```
 
 ### 性能优化建议
