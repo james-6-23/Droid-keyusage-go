@@ -715,15 +715,19 @@
         async function copyToClipboard(text) {
             console.log('开始复制，文本长度:', text ? text.length : 0);
             
-            // 方法1: 尝试使用 Clipboard API
-            if (navigator.clipboard && navigator.clipboard.writeText) {
+            // 方法1: 尝试使用 Clipboard API (仅在 HTTPS 或 localhost 下可用)
+            if (typeof navigator !== 'undefined' && 
+                navigator.clipboard && 
+                typeof navigator.clipboard.writeText === 'function') {
                 try {
                     await navigator.clipboard.writeText(text);
-                    console.log('Clipboard API 复制成功');
+                    console.log('✅ Clipboard API 复制成功');
                     return true;
                 } catch (err) {
-                    console.log('Clipboard API 失败，尝试 fallback 方法:', err);
+                    console.log('⚠️ Clipboard API 失败，尝试 fallback 方法:', err.message);
                 }
+            } else {
+                console.log('ℹ️ Clipboard API 不可用（可能因为使用 HTTP），使用 fallback 方法');
             }
 
             // 方法2: Fallback - 使用传统的 execCommand 方法
@@ -748,19 +752,21 @@
                 textArea.focus();
                 textArea.select();
                 
+                // 尝试复制
                 const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);
                 
                 console.log('execCommand 复制结果:', successful);
                 
                 if (successful) {
+                    console.log('✅ execCommand 复制成功');
                     return true;
                 } else {
-                    console.error('execCommand 返回 false');
+                    console.error('❌ execCommand 返回 false');
                     return false;
                 }
             } catch (err) {
-                console.error('Fallback 复制方法异常:', err);
+                console.error('❌ Fallback 复制方法异常:', err);
                 return false;
             }
         }
