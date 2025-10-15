@@ -760,8 +760,19 @@
         }
 
         async function copyKey(id, button) {
+            // 防止重复点击
+            if (button.disabled) {
+                return;
+            }
+            
+            button.disabled = true;
+            const originalHTML = button.innerHTML;
+            
             try {
                 console.log('尝试复制 Key，ID:', id);
+                button.innerHTML = '⏳';
+                button.title = '复制中...';
+                
                 const response = await fetch(`/api/keys/${id}/full`);
                 console.log('响应状态:', response.status);
                 
@@ -791,15 +802,19 @@
                     showToast('API Key 已复制到剪贴板');
                     
                     setTimeout(() => {
-                        button.innerHTML = '📋';
+                        button.innerHTML = originalHTML;
                         button.title = '复制 API Key';
+                        button.disabled = false;
                     }, 2000);
                 } else {
-                    showToast('复制到剪贴板失败，请手动复制', true);
+                    throw new Error('复制到剪贴板失败');
                 }
             } catch (error) {
                 console.error('复制失败详情:', error);
                 showToast('复制失败: ' + error.message, true);
+                button.innerHTML = originalHTML;
+                button.title = '复制 API Key';
+                button.disabled = false;
             }
         }
 
