@@ -614,6 +614,10 @@
         async function copyKey(id, button) {
             try {
                 const response = await fetch(`/api/keys/${id}/full`);
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('获取完整 Key 失败');
                 }
@@ -650,6 +654,10 @@
                 
                 for (const id of selectedKeys) {
                     const response = await fetch(`/api/keys/${id}/full`);
+                    if (response.status === 401) {
+                        window.location.href = '/login.html';
+                        return;
+                    }
                     if (response.ok) {
                         const data = await response.json();
                         keys.push(data.key);
@@ -685,7 +693,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ids: Array.from(selectedKeys) })
                 });
-
+    
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
                 if (response.ok) {
                     const result = await response.json();
                     showToast(`✅ 成功删除 ${result.success} 个 Key${result.failed > 0 ? `, ${result.failed} 个失败` : ''}`);
@@ -774,27 +786,38 @@
         function loadData() {
             const spinner = document.getElementById('spinner');
             const btnText = document.getElementById('btnText');
-
+    
             spinner.style.display = 'inline-block';
             btnText.textContent = '加载中...';
-
+    
             fetch('/api/data?t=' + new Date().getTime())
                 .then(response => {
+                    // 检查是否未授权（401错误）
+                    if (response.status === 401) {
+                        // 重定向到登录页面
+                        window.location.href = '/login.html';
+                        return Promise.reject(new Error('需要登录'));
+                    }
                     if (!response.ok) {
                         throw new Error('无法加载数据: ' + response.statusText);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    if (data.error) {
+                    if (data && data.error) {
                         throw new Error(data.error);
                     }
-                    displayData(data);
-                    resetAutoRefresh();
+                    if (data) {
+                        displayData(data);
+                        resetAutoRefresh();
+                    }
                 })
                 .catch(error => {
-                    document.getElementById('tableContent').innerHTML = `<div class="error">❌ 加载失败: ${error.message}</div>`;
-                    document.getElementById('updateTime').textContent = "加载失败";
+                    // 不显示"需要登录"的错误，因为已经重定向了
+                    if (error.message !== '需要登录') {
+                        document.getElementById('tableContent').innerHTML = `<div class="error">❌ 加载失败: ${error.message}</div>`;
+                        document.getElementById('updateTime').textContent = "加载失败";
+                    }
                 })
                 .finally(() => {
                     spinner.style.display = 'none';
@@ -940,9 +963,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ keys })
                 });
-
+    
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+    
                 const data = await response.json();
-
+    
                 if (response.ok) {
                     let message = `✅ 成功添加 ${data.success} 个`;
                     if (data.duplicates > 0) {
@@ -977,7 +1005,11 @@
                 const response = await fetch(`/api/keys/${id}`, {
                     method: 'DELETE'
                 });
-
+    
+                if (response.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
                 if (response.ok) {
                     showToast('密钥已删除');
                     loadData();
